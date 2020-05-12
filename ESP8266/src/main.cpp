@@ -74,3 +74,7 @@ String getDataFromSensor() {
 
     return dataFromSensor;
 }
+
+void sendDataToAws(String jsonData) {
+
+}
