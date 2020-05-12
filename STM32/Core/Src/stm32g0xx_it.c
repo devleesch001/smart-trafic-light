@@ -59,7 +59,7 @@
 
 /* External variables --------------------------------------------------------*/
 extern UART_HandleTypeDef hlpuart1;
-extern SPI_HandleTypeDef hspi1;
+extern UART_HandleTypeDef huart1;
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -139,17 +139,17 @@ void EXTI4_15_IRQHandler(void)
 }
 
 /**
-  * @brief This function handles SPI1 global interrupt.
+  * @brief This function handles USART1 global interrupt / USART1 wake-up interrupt through EXTI line 25.
   */
-void SPI1_IRQHandler(void)
+void USART1_IRQHandler(void)
 {
-  /* USER CODE BEGIN SPI1_IRQn 0 */
+  /* USER CODE BEGIN USART1_IRQn 0 */
 
-  /* USER CODE END SPI1_IRQn 0 */
-  HAL_SPI_IRQHandler(&hspi1);
-  /* USER CODE BEGIN SPI1_IRQn 1 */
+  /* USER CODE END USART1_IRQn 0 */
+  HAL_UART_IRQHandler(&huart1);
+  /* USER CODE BEGIN USART1_IRQn 1 */
 
-  /* USER CODE END SPI1_IRQn 1 */
+  /* USER CODE END USART1_IRQn 1 */
 }
 
 /**
