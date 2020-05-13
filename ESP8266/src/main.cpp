@@ -4,28 +4,34 @@
 #include <ESP8266WiFi.h>
 #include <SoftwareSerial.h>
 
+#include <string>       // std::string
+#include <iostream>     // std::cout
+#include <sstream>      // std::istringstream
+
 const char *ssid = "Livebox-dev-";
 const char *password = "79221FC83787F575CE711C1668";
 
-SoftwareSerial Uart2(0, 2);
+SoftwareSerial Uart2(0, 2); // (rx, tx)
 
 int a = 0;
 
 //**************** Prototypes ****************
 bool connectToWIFI(int tryConnect);
-String getData(const char * data);
+String getDataFromSTM();
+bool checkData(String data);
+
 
 
 //****************setup*****************
 void setup() {
     // put your setup code here, to run once:
     Serial.begin(9600); // start serial port at 9600 bps
-    Serial.println("---------- Program Start ----------");
+    Serial.println(" ---------= Program Start =--------- ");
 
     Uart2.begin(9600);
     delay(1000);
 
-    while (!connectToWIFI(20)) {}       // connect to WIFI try 20
+    while (!connectToWIFI(20)) {}       // connect to WIFI try 20 times
 }
 
 //****************loop*****************
@@ -33,11 +39,22 @@ void loop() {
     // put your main code here, to run repeatedly:
 
     if (Serial.available() > 0) {
-        // read the incoming byte:
-        Serial.println(getDataFromSensor());
     }
 
+
+    String sensor = getDataFromSensor();
     
+    if (strlen(sensor.c_str()) > 0){
+        Serial.println(sensor);
+    }
+
+    delay(100);
+
+/*
+    String dataFromSensor = Uart2.readString();
+    Serial.println(dataFromSensor);
+    delay(100);
+*/
 }
 
 //****************Functions*****************
@@ -60,21 +77,17 @@ bool connectToWIFI(int tryConnect) {
             return false;
         }
     }
-    Serial.println("OK");
+    Serial.println("Connected");
     return true;
 }
 
-String getDataFromSensor() {
-    String dataFromSensor = "";
-    
+String getDataFromSTM() {
+    String dataFromSTM = "";
+
     while(Uart2.available() > 0) {
-        dataFromSensor = Uart2.readString(); //read() read from RX_PIN  character by character 
+        dataFromSTM += (char)Uart2.read(); //read() read from RX_PIN  character by character
     }
-    Serial.println(dataFromSensor);
 
-    return dataFromSensor;
+    return dataFromSTM;
 }
 
-void sendDataToAws(String jsonData) {
-
-}
