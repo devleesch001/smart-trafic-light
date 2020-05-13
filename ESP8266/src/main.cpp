@@ -91,3 +91,77 @@ String getDataFromSTM() {
     return dataFromSTM;
 }
 
+bool checkData(String data) {
+    typedef enum {
+        LABEL,
+        VALUE,
+        SUM
+    } parser_t;
+
+    parser_t parser = LABEL;
+
+    String label, value, sum;
+
+    for (unsigned int i = 0; i < data.length(); i++){
+        if (data[i] == 0x0a){
+            parser = LABEL;
+
+        } else if (data[i] == 0x0d){
+            /* code */
+        } else if (data[i] == 0x09){
+            switch (parser)
+            {
+            case LABEL:
+                parser = VALUE;
+            break;
+            case VALUE:
+                parser = SUM;
+            break;
+            default:
+            break;
+            }
+
+        } else {
+            
+            switch (parser)
+            {
+            case LABEL:
+                label += data[i];
+
+                break;
+            case VALUE:
+                value += data[i];
+                break;
+
+            case SUM:
+                sum +=  data[i];
+                break;
+            default:
+            break;
+            }
+        }
+    }
+
+    String toSum = label + "\t" + value + "\t";
+
+    uint8_t crc = 0xff;
+    size_t i, j;
+    for (i = 0; i < toSum.length(); i++) {
+        crc ^= toSum[i];
+        for (j = 0; j < 8; j++) {
+            if ((crc & 0x80) != 0)
+                crc = (uint8_t)((crc << 1) ^ 0x31);
+            else
+                crc <<= 1;
+        }
+    }
+    
+    char chr[1];
+    sprintf(chr, "%c", crc);
+
+    if (sum == chr){
+        return true;
+    }
+    
+    return false;
+}
