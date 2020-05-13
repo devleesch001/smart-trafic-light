@@ -25,9 +25,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
-#include "btn_driver.h"
 #include "osdebug.h"
-#include "inter_com.h"
+#include "ESP8266.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -40,7 +39,10 @@ typedef StaticSemaphore_t osStaticSemaphoreDef_t;
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define STX 0x02
+#define ETX 0x03
+#define LF  0x0a
+#define CR  0x0d
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -90,6 +92,18 @@ const osThreadAttr_t logger_attributes = {
   .cb_size = sizeof(logger_ControlBlock),
   .priority = (osPriority_t) osPriorityLow,
 };
+/* Definitions for espTask */
+osThreadId_t espTaskHandle;
+uint32_t espTaskBuffer[ 512 ];
+osStaticThreadDef_t espTaskControlBlock;
+const osThreadAttr_t espTask_attributes = {
+  .name = "espTask",
+  .stack_mem = &espTaskBuffer[0],
+  .stack_size = sizeof(espTaskBuffer),
+  .cb_mem = &espTaskControlBlock,
+  .cb_size = sizeof(espTaskControlBlock),
+  .priority = (osPriority_t) osPriorityLow,
+};
 /* Definitions for log_queue */
 osMessageQueueId_t log_queueHandle;
 uint8_t log_queueBuffer[ 16 * sizeof( logger_obj_t ) ];
@@ -100,6 +114,17 @@ const osMessageQueueAttr_t log_queue_attributes = {
   .cb_size = sizeof(log_queueControlBlock),
   .mq_mem = &log_queueBuffer,
   .mq_size = sizeof(log_queueBuffer)
+};
+/* Definitions for espQueue */
+osMessageQueueId_t espQueueHandle;
+uint8_t espQueueBuffer[ 16 * sizeof( esp_obj_t ) ];
+osStaticMessageQDef_t espQueueControlBlock;
+const osMessageQueueAttr_t espQueue_attributes = {
+  .name = "espQueue",
+  .cb_mem = &espQueueControlBlock,
+  .cb_size = sizeof(espQueueControlBlock),
+  .mq_mem = &espQueueBuffer,
+  .mq_size = sizeof(espQueueBuffer)
 };
 /* Definitions for logger_s */
 osSemaphoreId_t logger_sHandle;
@@ -116,6 +141,14 @@ const osSemaphoreAttr_t uart_s_attributes = {
   .name = "uart_s",
   .cb_mem = &uart_s_ControlBlock,
   .cb_size = sizeof(uart_s_ControlBlock),
+};
+/* Definitions for esp_s */
+osSemaphoreId_t esp_sHandle;
+osStaticSemaphoreDef_t esp_sControlBlock;
+const osSemaphoreAttr_t esp_s_attributes = {
+  .name = "esp_s",
+  .cb_mem = &esp_sControlBlock,
+  .cb_size = sizeof(esp_sControlBlock),
 };
 /* USER CODE BEGIN PV */
 
@@ -140,6 +173,7 @@ static void MX_USART1_UART_Init(void);
 void task1_fct(void *argument);
 void task2_fct(void *argument);
 void logger_fct(void *argument);
+void espStartTask(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -183,7 +217,6 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  btn_driver_init();
   dbg_init(DBG_UART);
 
   /* USER CODE END 2 */
@@ -202,6 +235,9 @@ int main(void)
   /* creation of uart_s */
   uart_sHandle = osSemaphoreNew(1, 1, &uart_s_attributes);
 
+  /* creation of esp_s */
+  esp_sHandle = osSemaphoreNew(1, 1, &esp_s_attributes);
+
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
 
@@ -214,6 +250,9 @@ int main(void)
   /* Create the queue(s) */
   /* creation of log_queue */
   log_queueHandle = osMessageQueueNew (16, sizeof(logger_obj_t), &log_queue_attributes);
+
+  /* creation of espQueue */
+  espQueueHandle = osMessageQueueNew (16, sizeof(esp_obj_t), &espQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -228,6 +267,9 @@ int main(void)
 
   /* creation of logger */
   loggerHandle = osThreadNew(logger_fct, NULL, &logger_attributes);
+
+  /* creation of espTask */
+  espTaskHandle = osThreadNew(espStartTask, NULL, &espTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -489,14 +531,14 @@ static void MX_GPIO_Init(void)
 void task1_fct(void *argument)
 {
   /* USER CODE BEGIN 5 */
-  dbg_log("task 1 started");
+	dbg_log("task 1 started\r\n");
 
   /* Infinite loop */
-  for(;;)
-  {
-	  dbg_printf("task 1 alive");
-	  osDelay(10000);
-  }
+	for(;;)
+	{
+		// dbg_printf("task 1 alive");
+		osDelay(100);
+	}
   /* USER CODE END 5 */ 
 }
 
@@ -510,27 +552,19 @@ void task1_fct(void *argument)
 void task2_fct(void *argument)
 {
   /* USER CODE BEGIN task2_fct */
-  dbg_log("task 2 started");
+	dbg_log("task 2 started\r\n");
 
-  /* Infinite loop */
-  for(;;)
-  {
-	//dbg_printf("task 2 alive");
+	/* Infinite loop */
+	for(;;)
+	{
+//		HAL_UART_Transmit(&huart1, "test1\r\n", 6, 1000);
+//		HAL_UART_Transmit(&hlpuart1, "test1\r\n", 6, 1000);
+//		dbg_printf("task 1 alive");
 
-	char data[255];
-	char *string1 = "test 1";
-	char *string2 = "test 2";
+		esp8266_print("ToF", "triggered");
 
-	snprintf(data, 255, "%s %s\r\n", string1, string2);
-
-	uint8_t datalen = strlen(data);
-
-	HAL_UART_Transmit(&huart1, (uint8_t *) data, datalen, 1000);
-	HAL_UART_Transmit(&hlpuart1, (uint8_t *) data, datalen, 1000);
-
-
-	osDelay(1000);
-  }
+		osDelay(1000);
+	}
   /* USER CODE END task2_fct */
 }
 
@@ -545,13 +579,32 @@ void logger_fct(void *argument)
 {
   /* USER CODE BEGIN logger_fct */
 
+	/* Infinite loop */
+	for(;;)
+	{
+		dbg();
+		osDelay(1);
+	}
+  /* USER CODE END logger_fct */
+}
+
+/* USER CODE BEGIN Header_espStartTask */
+/**
+* @brief Function implementing the espTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_espStartTask */
+void espStartTask(void *argument)
+{
+  /* USER CODE BEGIN espStartTask */
   /* Infinite loop */
   for(;;)
   {
-	dbg();
-	osDelay(1);
+	  esp8266();
+	  osDelay(1);
   }
-  /* USER CODE END logger_fct */
+  /* USER CODE END espStartTask */
 }
 
 /**

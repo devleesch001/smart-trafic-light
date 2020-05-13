@@ -27,7 +27,7 @@
 // OS
 #include "cmsis_os2.h"
 
-// use common libs
+// Common Libs
 #include <stdio.h>		// sprintf & printf
 #include <stdbool.h>	// bool
 #include <string.h>		// strlen...
@@ -58,7 +58,7 @@ typedef enum {
 
 // output
 typedef enum {
-	DBG_UART
+	DBG_UART,
 } dbg_out_t;
 
 // object data type in queue

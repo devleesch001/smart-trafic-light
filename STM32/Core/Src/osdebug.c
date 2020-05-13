@@ -37,6 +37,7 @@ char 			dbg_msg[TXT_OUT_SIZE];
 logger_obj_t 	dbg_obj = {0, DBG_INFO, "NO MESSAGE"};
 osStatus_t 		rstatus;
 
+
 #endif
 
 /* Private user code ---------------------------------------------------------*/
@@ -53,9 +54,10 @@ void dbg_init(dbg_out_t out) {
 		// nothing special
 	break;
 
+
 	default:
 		Error_Handler();
-		break;
+	break;
 	}
 
 }
