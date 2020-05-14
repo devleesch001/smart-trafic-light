@@ -54,7 +54,7 @@ extern osSemaphoreId_t 		esp_sHandle;
 extern osMessageQueueId_t 	espQueueHandle;
 
 
-/* Exported functions prototypes ---------------------------------------------*/
+/* functions prototypes ---------------------------------------------*/
 
 osStatus_t esp8266(void);
 void esp8266_print(char * label, char * data);
