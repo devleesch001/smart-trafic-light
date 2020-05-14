@@ -42,7 +42,7 @@ void loop() {
     }
 
 
-    String sensor = getDataFromSensor();
+    String sensor = getDataFromSTM();
     
     if (strlen(sensor.c_str()) > 0){
         Serial.println(sensor);
