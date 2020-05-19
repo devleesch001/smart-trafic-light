@@ -1,5 +1,5 @@
 /*******************************************************************************
- Copyright © 2016, STMicroelectronics International N.V.
+ Copyright ï¿½ 2016, STMicroelectronics International N.V.
  All rights reserved.
 
  Redistribution and use in source and binary forms, with or without
@@ -87,14 +87,10 @@ VL53L0X_Error VL53L0X_GetProductRevision(VL53L0X_DEV Dev,
 	VL53L0X_Error Status = VL53L0X_ERROR_NONE;
 	uint8_t revision_id;
 
-	LOG_FUNCTION_START("");
-
-	Status = VL53L0X_RdByte(Dev, VL53L0X_REG_IDENTIFICATION_REVISION_ID,
-		&revision_id);
+	Status = VL53L0X_RdByte(Dev, VL53L0X_REG_IDENTIFICATION_REVISION_ID, &revision_id);
 	*pProductRevisionMajor = 1;
 	*pProductRevisionMinor = (revision_id & 0xF0) >> 4;
 
-	LOG_FUNCTION_END(Status);
 	return Status;
 
 }
