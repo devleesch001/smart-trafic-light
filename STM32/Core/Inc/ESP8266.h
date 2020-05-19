@@ -58,7 +58,7 @@ extern osMessageQueueId_t 	espQueueHandle;
 
 osStatus_t esp8266(void);
 void esp8266_print(char * label, char * data);
-uint8_t crc8(uint8_t *data);
+char crc8(char *data);
 
 
 #endif /* INC_ESP8266_H_ */

@@ -26,7 +26,6 @@ extern void Error_Handler(void);
 extern UART_HandleTypeDef ESP_HANDLER; // serial monitor
 
 osStatus_t esp8266(void) {
-	uint8_t			esp_len;
 	esp_obj_t		esp_in;
 	uint8_t			esp_prio;
 
@@ -36,8 +35,7 @@ osStatus_t esp8266(void) {
 
 		osSemaphoreAcquire(esp_sHandle, 0);
 
-			esp_len = strlen(esp_in.txt);
-			HAL_UART_Transmit(&ESP_HANDLER, (uint8_t *) esp_in.txt, esp_len, TIMEOUT_OUT);
+			HAL_UART_Transmit(&ESP_HANDLER, (uint8_t *)esp_in.txt, strlen(esp_in.txt), TIMEOUT_OUT);
 
 		osSemaphoreRelease(esp_sHandle);
 	}
@@ -60,7 +58,7 @@ void esp8266_print(char * label, char * data) {
 	osSemaphoreRelease(esp_sHandle);
 }
 
-uint8_t crc8(uint8_t *data)
+char crc8(char *data)
 {
 
     uint8_t crc = 0xff;

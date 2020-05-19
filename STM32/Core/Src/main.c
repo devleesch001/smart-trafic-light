@@ -27,6 +27,10 @@
 #include <stdio.h>
 #include "osdebug.h"
 #include "ESP8266.h"
+#include "vl53l0x_api.h"
+#include "printf.h"
+#include "ToF.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,6 +47,8 @@ typedef StaticSemaphore_t osStaticSemaphoreDef_t;
 #define ETX 0x03
 #define LF  0x0a
 #define CR  0x0d
+
+#define VL53L_ADDR 0x29 << 1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -74,7 +80,7 @@ const osThreadAttr_t task1_attributes = {
 };
 /* Definitions for task2 */
 osThreadId_t task2Handle;
-uint32_t task2_Buffer[ 512 ];
+uint32_t task2_Buffer[ 128 ];
 osStaticThreadDef_t task2_ControlBlock;
 const osThreadAttr_t task2_attributes = {
   .name = "task2",
@@ -86,7 +92,7 @@ const osThreadAttr_t task2_attributes = {
 };
 /* Definitions for logger */
 osThreadId_t loggerHandle;
-uint32_t logger_Buffer[ 512 ];
+uint32_t logger_Buffer[ 128 ];
 osStaticThreadDef_t logger_ControlBlock;
 const osThreadAttr_t logger_attributes = {
   .name = "logger",
@@ -98,7 +104,7 @@ const osThreadAttr_t logger_attributes = {
 };
 /* Definitions for espTask */
 osThreadId_t espTaskHandle;
-uint32_t espTaskBuffer[ 512 ];
+uint32_t espTaskBuffer[ 128 ];
 osStaticThreadDef_t espTaskControlBlock;
 const osThreadAttr_t espTask_attributes = {
   .name = "espTask",
@@ -110,7 +116,7 @@ const osThreadAttr_t espTask_attributes = {
 };
 /* Definitions for log_queue */
 osMessageQueueId_t log_queueHandle;
-uint8_t log_queueBuffer[ 16 * sizeof( logger_obj_t ) ];
+uint8_t log_queueBuffer[ 32 * sizeof( logger_obj_t ) ];
 osStaticMessageQDef_t log_queueControlBlock;
 const osMessageQueueAttr_t log_queue_attributes = {
   .name = "log_queue",
@@ -121,7 +127,7 @@ const osMessageQueueAttr_t log_queue_attributes = {
 };
 /* Definitions for espQueue */
 osMessageQueueId_t espQueueHandle;
-uint8_t espQueueBuffer[ 16 * sizeof( esp_obj_t ) ];
+uint8_t espQueueBuffer[ 8 * sizeof( esp_obj_t ) ];
 osStaticMessageQDef_t espQueueControlBlock;
 const osMessageQueueAttr_t espQueue_attributes = {
   .name = "espQueue",
@@ -156,7 +162,7 @@ const osSemaphoreAttr_t esp_s_attributes = {
 };
 /* USER CODE BEGIN PV */
 
-const char* hello	= "brief #9.2 DC+B welcome";
+const char* hello	= "smart-trafic-light";
 
 uint8_t btn_cpt = 0;
 
@@ -257,10 +263,10 @@ int main(void)
 
   /* Create the queue(s) */
   /* creation of log_queue */
-  log_queueHandle = osMessageQueueNew (16, sizeof(logger_obj_t), &log_queue_attributes);
+  log_queueHandle = osMessageQueueNew (32, sizeof(logger_obj_t), &log_queue_attributes);
 
   /* creation of espQueue */
-  espQueueHandle = osMessageQueueNew (16, sizeof(esp_obj_t), &espQueue_attributes);
+  espQueueHandle = osMessageQueueNew (8, sizeof(esp_obj_t), &espQueue_attributes);
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
@@ -283,7 +289,7 @@ int main(void)
   /* add threads, ... */
 
   // first welcome hello
-  dbg_log("%s TRACE DEBUG [%s]", hello, TRACE?"ON":"OFF" );
+  dbg_log("%s TRACE DEBUG [%s]\r\n\r\n", hello, TRACE?"ON":"OFF" );
 
   /* USER CODE END RTOS_THREADS */
 
@@ -323,7 +329,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV1;
-  RCC_OscInitStruct.PLL.PLLN = 8;
+  RCC_OscInitStruct.PLL.PLLN = 16;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV4;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
@@ -339,7 +345,7 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
@@ -405,7 +411,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x00707CBB;
+  hi2c1.Init.Timing = 0x00602173;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -580,6 +586,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USER_LED_GPIO_Port, USER_LED_Pin, GPIO_PIN_RESET);
@@ -617,13 +624,44 @@ static void MX_GPIO_Init(void)
 void task1_fct(void *argument)
 {
   /* USER CODE BEGIN 5 */
-	dbg_log("task 1 started\r\n");
+	dbg_log("task 1 started");
+
+
+//	dbg_printf("Device : %s", (HAL_I2C_IsDeviceReady(&hi2c1, VL53L_ADDR, 2, HAL_MAX_DELAY) == HAL_OK) ? "already":"error");
+
+	VL53L0X_Dev_t device;
+	VL53L0X_Dev_t *pdevice = &device;
+
+//	VL53L0X_RangingMeasurementData_t RangingMeasurementData;
+//	VL53L0X_RangingMeasurementData_t *pRangingMeasurementData = &RangingMeasurementData;
+
+	VL53L0X_RangingMeasurementData_t measure;
+
+	bool ToFsensorAlready = ToF_init(pdevice, false);
+
+	// dbg_printfln("ToF_init : %s", (ToF_init(pdevice, true)) ? "ok":"ko");
+
 
   /* Infinite loop */
 	for(;;)
 	{
-		// dbg_printf("task 1 alive");
-		osDelay(100);
+		if (!ToFsensorAlready){
+			dbg_printfln("ToF_init : ko");
+
+			ToFsensorAlready = ToF_init(pdevice, false);
+
+		} else {
+			getSingleRanging(pdevice, &measure, false);
+
+			dbg_printfln("Distance (mm): %d", measure.RangeMilliMeter);
+		}
+
+		//dbg_printf("task 1 alive");
+
+
+
+		osDelay(10);
+
 	}
   /* USER CODE END 5 */ 
 }
@@ -645,9 +683,9 @@ void task2_fct(void *argument)
 	{
 //		HAL_UART_Transmit(&huart1, "test1\r\n", 6, 1000);
 //		HAL_UART_Transmit(&hlpuart1, "test1\r\n", 6, 1000);
-//		dbg_printf("task 1 alive");
+		//dbg_printfln("task 2 alive");
 
-		esp8266_print("ToF", "triggered");
+		//esp8266_print("ToF", "triggered");
 
 		osDelay(1000);
 	}
