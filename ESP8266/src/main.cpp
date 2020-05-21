@@ -3,22 +3,28 @@
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
 #include <SoftwareSerial.h>
+#include <ArduinoJson.h>
 
 #include <string>       // std::string
 #include <iostream>     // std::cout
 #include <sstream>      // std::istringstream
+
+#include "crc32.hpp"
 
 const char *ssid = "Livebox-dev-";
 const char *password = "79221FC83787F575CE711C1668";
 
 SoftwareSerial Uart2(0, 2); // (rx, tx)
 
+String dataFromSTM = "";
+
 int a = 0;
 
 //**************** Prototypes ****************
-bool connectToWIFI(int tryConnect);
+bool connectToWIFI(int tryConnect, bool debug);
 String getDataFromSTM();
-bool checkData(String data);
+bool checkCRC(String sensor);
+String getData(String sensor);
 
 
 
@@ -29,25 +35,42 @@ void setup() {
     Serial.println(" ---------= Program Start =--------- ");
 
     Uart2.begin(9600);
+
     delay(1000);
 
-    while (!connectToWIFI(20)) {}       // connect to WIFI try 20 times
+    //while (!connectToWIFI(20, true)) {}       // connect to WIFI try 20 times
 }
 
 //****************loop*****************
 void loop() {
     // put your main code here, to run repeatedly:
 
-    if (Serial.available() > 0) {
+    if (Serial.available() > 0) {   
     }
-
-
     String sensor = getDataFromSTM();
-    
-    if (strlen(sensor.c_str()) > 0){
-        Serial.println(sensor);
-    }
 
+    if (sensor.length() > 0){
+        Serial.println(sensor);
+
+
+        if (checkCRC(sensor)) {
+            String data = getData(sensor);
+            Serial.print("sensor : ");
+            Serial.println(data);
+
+            StaticJsonDocument<128> json;
+
+            deserializeJson(json, data);
+
+            String tof = json["ToF"];
+
+            if (tof == "triggered") {
+                Serial.println(tof);
+            }
+        }
+        
+    }
+    
     delay(100);
 
 /*
@@ -60,20 +83,29 @@ void loop() {
 //****************Functions*****************
 
 //***Function for connect to internet 
-bool connectToWIFI(int tryConnect) {
-    
-    Serial.print("Waiting for connection to WiFi to : ");
-    Serial.println(ssid);
+bool connectToWIFI(int tryConnect, bool debug) {
+    if (debug){
+        Serial.print("Waiting for connection to WiFi to : ");
+        Serial.println(ssid);
+    }
+
     WiFi.begin(ssid, password);   //WiFi connection
     
     int i = 0;
     while (WiFi.status() != WL_CONNECTED) {  //Wait for the WiFi connection completion
         if (i <= tryConnect) {
             delay(500);
-            Serial.print('.');
+            
+            if (debug) {
+                Serial.print('.');
+            }
+            
             i++;
         } else {  //delay passed
-            Serial.println("Delay passed");
+            if (debug) {
+                Serial.println("Delay passed");
+            }
+            
             return false;
         }
     }
@@ -82,86 +114,54 @@ bool connectToWIFI(int tryConnect) {
 }
 
 String getDataFromSTM() {
-    String dataFromSTM = "";
+    char c_uart2 = '\0';
+
+    //Serial.println("getData");
 
     while(Uart2.available() > 0) {
-        dataFromSTM += (char)Uart2.read(); //read() read from RX_PIN  character by character
+        c_uart2 = (char)Uart2.read();
+        dataFromSTM += c_uart2; //read() read from RX_PIN  character by character
     }
 
-    return dataFromSTM;
+    if (c_uart2 == '\r') {
+        c_uart2 = '\0';
+
+        String data = dataFromSTM;
+        dataFromSTM = "";
+
+        return data;
+    } else {
+        return "";
+    }
 }
 
-bool checkData(String data) {
-    typedef enum {
-        LABEL,
-        VALUE,
-        SUM
-    } parser_t;
+bool checkCRC(String sensor) {
 
-    parser_t parser = LABEL;
+    StaticJsonDocument<128> json;
+    deserializeJson(json, sensor);
 
-    String label, value, sum;
+    const char* c_crc = json["crc"];
+    uint32_t uint_crc = (int)strtol(c_crc, NULL, 16);
 
-    for (unsigned int i = 0; i < data.length(); i++){
-        if (data[i] == 0x0a){
-            parser = LABEL;
+    String data;
+    serializeJson(json["data"][0], data);
+    char * c_data = (char *)data.c_str();
+    uint32_t crc = StringToCRC32(c_data, CRC32mpeg2);
 
-        } else if (data[i] == 0x0d){
-            /* code */
-        } else if (data[i] == 0x09){
-            switch (parser)
-            {
-            case LABEL:
-                parser = VALUE;
-            break;
-            case VALUE:
-                parser = SUM;
-            break;
-            default:
-            break;
-            }
-
-        } else {
-            
-            switch (parser)
-            {
-            case LABEL:
-                label += data[i];
-
-                break;
-            case VALUE:
-                value += data[i];
-                break;
-
-            case SUM:
-                sum +=  data[i];
-                break;
-            default:
-            break;
-            }
-        }
-    }
-
-    String toSum = label + "\t" + value + "\t";
-
-    uint8_t crc = 0xff;
-    size_t i, j;
-    for (i = 0; i < toSum.length(); i++) {
-        crc ^= toSum[i];
-        for (j = 0; j < 8; j++) {
-            if ((crc & 0x80) != 0)
-                crc = (uint8_t)((crc << 1) ^ 0x31);
-            else
-                crc <<= 1;
-        }
-    }
-    
-    char chr[1];
-    sprintf(chr, "%c", crc);
-
-    if (sum == chr){
+    if (crc == uint_crc) {
         return true;
     }
-    
+
     return false;
+}
+
+String getData(String sensor) {
+    
+    StaticJsonDocument<128> json;
+    deserializeJson(json, sensor);
+    
+    String data;
+    serializeJson(json["data"][0], data);
+
+    return data;
 }
