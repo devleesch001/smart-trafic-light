@@ -11,6 +11,8 @@
 
 #include "crc32.hpp"
 
+StaticJsonDocument<128> json;
+
 const char *ssid = "Livebox-dev-";
 const char *password = "79221FC83787F575CE711C1668";
 
@@ -57,8 +59,6 @@ void loop() {
             String data = getData(sensor);
             Serial.print("sensor : ");
             Serial.println(data);
-
-            StaticJsonDocument<128> json;
 
             deserializeJson(json, data);
 
@@ -137,7 +137,6 @@ String getDataFromSTM() {
 
 bool checkCRC(String sensor) {
 
-    StaticJsonDocument<128> json;
     deserializeJson(json, sensor);
 
     const char* c_crc = json["crc"];
@@ -156,8 +155,7 @@ bool checkCRC(String sensor) {
 }
 
 String getData(String sensor) {
-    
-    StaticJsonDocument<128> json;
+
     deserializeJson(json, sensor);
     
     String data;
