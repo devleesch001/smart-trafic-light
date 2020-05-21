@@ -154,14 +154,3 @@ bool checkCRC(String sensor) {
 
     return false;
 }
-
-String getData(String sensor) {
-    
-    StaticJsonDocument<128> json;
-    deserializeJson(json, sensor);
-    
-    String data;
-    serializeJson(json["data"][0], data);
-
-    return data;
-}
