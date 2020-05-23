@@ -64,6 +64,10 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define RED_LED_Pin GPIO_PIN_11
+#define RED_LED_GPIO_Port GPIOC
+#define BUZZER_Pin GPIO_PIN_12
+#define BUZZER_GPIO_Port GPIOC
 #define USER_BTN_Pin GPIO_PIN_13
 #define USER_BTN_GPIO_Port GPIOC
 #define USER_BTN_EXTI_IRQn EXTI4_15_IRQn
@@ -75,6 +79,8 @@ void Error_Handler(void);
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
+#define GREEN_LED_Pin GPIO_PIN_10
+#define GREEN_LED_GPIO_Port GPIOC
 /* USER CODE BEGIN Private defines */
 
 
