@@ -1,26 +1,20 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
+
+#include <SoftwareSerial.h>
+
+#include <PubSubClient.h>
 #include <ESP8266HTTPClient.h>
 #include <ESP8266WiFi.h>
-#include <SoftwareSerial.h>
-#include <ArduinoJson.h>
+#include <time.h>
 
-#include <string>       // std::string
-#include <iostream>     // std::cout
-#include <sstream>      // std::istringstream
+#include "crc32.h"
+#include "keys.h"
 
-#include "crc32.hpp"
+extern "C" {
+#include "libb64/cdecode.h"
+}
 
-StaticJsonDocument<128> json;
-
-const char *ssid = "Livebox-dev-";
-const char *password = "79221FC83787F575CE711C1668";
-
-SoftwareSerial Uart2(0, 2); // (rx, tx)
-
-String dataFromSTM = "";
-
-int a = 0;
 
 //**************** Prototypes ****************
 bool connectToWIFI(int tryConnect, bool debug);
@@ -28,6 +22,21 @@ String getDataFromSTM();
 bool checkCRC(String sensor);
 String getData(String sensor);
 
+bool connectToAws();
+void callback(char* topic, byte* payload, unsigned int length);
+int b64decode(String b64Text, uint8_t* output);
+void setCurrentTime();
+void sendDatatoAws(String jsonData);
+
+// Private Variable
+WiFiClientSecure wiFiClient;
+PubSubClient pubSubClient(AWS_IOT_ENDPOINT, 8883, callback, wiFiClient); //MQTT Client
+
+StaticJsonDocument<512> json;
+SoftwareSerial Uart2(0, 2); // (rx, tx)
+
+String dataFromSTM = "";
+int a = 0;
 
 
 //****************setup*****************
@@ -40,76 +49,112 @@ void setup() {
 
     delay(1000);
 
-    //while (!connectToWIFI(20, true)) {}       // connect to WIFI try 20 times
+    while (!connectToWIFI(20, true)) {}       // connect to WIFI try 20 times
+
+    setCurrentTime();
+
+    uint8_t binaryCert[AWS_CERT_CRT.length() * 3 / 4];
+    int len = b64decode(AWS_CERT_CRT, binaryCert);
+    wiFiClient.setCertificate(binaryCert, len);
+
+    uint8_t binaryPrivate[AWS_CERT_PRIVATE.length() * 3 / 4];
+    len = b64decode(AWS_CERT_PRIVATE, binaryPrivate);
+    wiFiClient.setPrivateKey(binaryPrivate, len);
+
+    uint8_t binaryCA[AWS_CERT_CA.length() * 3 / 4];
+    len = b64decode(AWS_CERT_CA, binaryCA);
+    wiFiClient.setCACert(binaryCA, len);
 }
 
 //****************loop*****************
 void loop() {
     // put your main code here, to run repeatedly:
 
-    if (Serial.available() > 0) {   
+    if (WiFi.status() == WL_CONNECTED){
+        connectToAws();
     }
+
+    //Serial.println(time(nullptr));
+    //Serial.println(ctime(&now));
+    
+
     String sensor = getDataFromSTM();
 
     if (sensor.length() > 0){
         Serial.println(sensor);
 
-
         if (checkCRC(sensor)) {
+
+            String data = getData(sensor);
+            deserializeJson(json, data);
+            json["Date"] = time(nullptr);
+
+            //time_t now = time(nullptr);
+
+            data = "";
+            serializeJson(json, data);
+
+            Serial.printf("Sending  [%s]: ", MQTT_PUB_TOPIC);
+
+
+            Serial.println(data);
+
+            if (!pubSubClient.publish(MQTT_PUB_TOPIC, data.c_str(), false))// send json data to dynamoDbB topic
+            Serial.println("ERROR??? :"); Serial.println(pubSubClient.state()); //Connected '0'
+            //sendDatatoAws(sensor);
+            /*
+
+
+
+
             String data = getData(sensor);
             Serial.print("sensor : ");
             Serial.println(data);
 
             deserializeJson(json, data);
 
-            String tof = json["ToF"];
+            String tof = json[0];
+            Serial.println(tof);
+
+
 
             if (tof == "triggered") {
                 Serial.println(tof);
             }
+            */
         }
         
     }
     
     delay(100);
-
-/*
-    String dataFromSensor = Uart2.readString();
-    Serial.println(dataFromSensor);
-    delay(100);
-*/
 }
 
 //****************Functions*****************
 
 //***Function for connect to internet 
 bool connectToWIFI(int tryConnect, bool debug) {
+
+    Serial.print("Waiting for connection to WiFi to : "); Serial.print(WIFI_SSID);
+
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);   //WiFi connection
+
     if (debug){
-        Serial.print("Waiting for connection to WiFi to : ");
-        Serial.println(ssid);
+        int i = 0;
+        while (WiFi.status() != WL_CONNECTED) {
+        
+            if (i <= tryConnect) {
+                delay(500);
+                Serial.print('.');
+                i++;
+            } else {  //delay passed
+                Serial.println("Delay passed");
+                return false;
+            }
+        }
+        Serial.println("Connected");
+
     }
 
-    WiFi.begin(ssid, password);   //WiFi connection
-    
-    int i = 0;
-    while (WiFi.status() != WL_CONNECTED) {  //Wait for the WiFi connection completion
-        if (i <= tryConnect) {
-            delay(500);
-            
-            if (debug) {
-                Serial.print('.');
-            }
-            
-            i++;
-        } else {  //delay passed
-            if (debug) {
-                Serial.println("Delay passed");
-            }
-            
-            return false;
-        }
-    }
-    Serial.println("Connected");
     return true;
 }
 
@@ -135,6 +180,28 @@ String getDataFromSTM() {
     }
 }
 
+void sendDatatoAws(String jsonData)
+{ 
+    //const char * data = "{\"posix\":856,\"phase\":\"green\",\"ToF\":\"triggered\"}";
+
+    deserializeJson(json, jsonData);
+
+    json["Date"] = time(nullptr);
+    //time_t now = time(nullptr);
+
+    serializeJson(json, jsonData);
+
+    Serial.printf("Sending  [%s]: ", MQTT_PUB_TOPIC);
+
+    const char * data = jsonData.c_str();
+    
+    Serial.printf(data);
+
+    if (!pubSubClient.publish(MQTT_PUB_TOPIC, data, false))// send json data to dynamoDbB topic
+    Serial.println("ERROR??? :"); Serial.println(pubSubClient.state()); //Connected '0'
+
+}
+
 bool checkCRC(String sensor) {
 
     deserializeJson(json, sensor);
@@ -143,7 +210,7 @@ bool checkCRC(String sensor) {
     uint32_t uint_crc = (int)strtol(c_crc, NULL, 16);
 
     String data;
-    serializeJson(json["data"][0], data);
+    serializeJson(json["data"], data);
     char * c_data = (char *)data.c_str();
     uint32_t crc = StringToCRC32(c_data, CRC32mpeg2);
 
@@ -155,11 +222,57 @@ bool checkCRC(String sensor) {
 }
 
 String getData(String sensor) {
-
-    deserializeJson(json, sensor);
-    
+    deserializeJson(json, sensor);    
     String data;
-    serializeJson(json["data"][0], data);
+    serializeJson(json["data"], data);
 
     return data;
+}
+
+bool connectToAws() {
+    if (!pubSubClient.connected()) {
+        Serial.print("PubSubClient connecting to : "); Serial.print(AWS_IOT_ENDPOINT);
+        while (!pubSubClient.connected()) {
+            Serial.print(pubSubClient.state());
+            delay(100);
+            Serial.print(".");
+            pubSubClient.connect("smart-trafic-light");
+        }
+
+        Serial.println(" connected");
+        pubSubClient.subscribe(MQTT_PUB_TOPIC);
+    }
+
+    pubSubClient.loop();
+    return true;
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+    Serial.print("Message received on "); Serial.print(topic); Serial.print(": ");
+    for (unsigned int i = 0; i < length; i++) {
+        Serial.print((char)payload[i]);
+    }
+    Serial.println();
+}
+
+int b64decode(String b64Text, uint8_t* output) {
+    base64_decodestate b64ds;
+    base64_init_decodestate(&b64ds);
+    int cnt = base64_decode_block(b64Text.c_str(), b64Text.length(), (char*)output, &b64ds);
+    return cnt;
+}
+
+void setCurrentTime() {
+    configTime(3 * 3600, 0, "pool.ntp.org", "time.nist.gov");
+    Serial.print("Waiting for NTP time sync: ");
+    time_t now = time(nullptr);
+    while (now < 8 * 3600 * 2) {
+        delay(500);
+        Serial.print(".");
+        now = time(nullptr);
+    }
+    Serial.println("");
+    struct tm timeinfo;
+    gmtime_r(&now, &timeinfo);
+    Serial.print("Current time: "); Serial.print(asctime(&timeinfo));
 }
