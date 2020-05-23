@@ -13,6 +13,10 @@
 /* Private variables ---------------------------------------------------------*/
 
 extern I2C_HandleTypeDef I2CHANDLE;
+extern uint16_t trigger;
+
+uint16_t preMeasure = 0;
+uint16_t triggered = 0;
 
 bool ToF_init(VL53L0X_DEV device, bool debug){
 
@@ -27,9 +31,11 @@ bool ToF_init(VL53L0X_DEV device, bool debug){
 	device->comms_type      = 1;
 	device->comms_speed_khz = 400;
 
-
 	VL53L0X_DeviceInfo_t Info;
 	VL53L0X_DeviceInfo_t *pInfo = &Info;
+
+	VL53L0X_RangingMeasurementData_t measure;
+	VL53L0X_RangingMeasurementData_t *pMeasure = &measure;
 
 	Status = VL53L0X_DataInit(device);
 
@@ -100,6 +106,14 @@ bool ToF_init(VL53L0X_DEV device, bool debug){
     	Status = VL53L0X_SetLimitCheckValue(device, VL53L0X_CHECKENABLE_RANGE_IGNORE_THRESHOLD,(FixPoint1616_t) (1.5 * 0.023 * 65536));
     }
 
+    if (Status == VL53L0X_ERROR_NONE) {
+    	Status = VL53L0X_SetLimitCheckValue(device, VL53L0X_CHECKENABLE_RANGE_IGNORE_THRESHOLD,(FixPoint1616_t) (1.5 * 0.023 * 65536));
+    }
+
+    VL53L0X_PerformSingleRangingMeasurement(device, pMeasure);
+
+    trigger = pMeasure->RangeMilliMeter;
+
 	if (debug){
 		print_pal_error(Status);
 	}
@@ -113,19 +127,20 @@ bool ToF_init(VL53L0X_DEV device, bool debug){
     }
 }
 
-VL53L0X_Error getSingleRanging (VL53L0X_DEV device, VL53L0X_RangingMeasurementData_t *RangingMeasurementData, bool debug) {
+VL53L0X_Error getSingleRanging(VL53L0X_DEV device, uint16_t* Measure, bool debug) {
 	//dbg_printfln("\r\ngetSingleRanging() has started\r\n");
+
+	VL53L0X_RangingMeasurementData_t measure;
+	VL53L0X_RangingMeasurementData_t *pMeasure = &measure;
 
 	VL53L0X_Error Status;
 	FixPoint1616_t LimitCheckCurrent;
 
-	Status = VL53L0X_PerformSingleRangingMeasurement(device, RangingMeasurementData);
+	Status = VL53L0X_PerformSingleRangingMeasurement(device, pMeasure);
 
-	if (Status == VL53L0X_ERROR_NONE) {
+	*Measure = pMeasure->RangeMilliMeter;
 
-		if (debug) {
-
-		}
+if (Status == VL53L0X_ERROR_NONE) {
 
 		if (debug) {
 			Status = VL53L0X_GetLimitCheckCurrent(device, VL53L0X_CHECKENABLE_RANGE_IGNORE_THRESHOLD, &LimitCheckCurrent);
@@ -135,14 +150,47 @@ VL53L0X_Error getSingleRanging (VL53L0X_DEV device, VL53L0X_RangingMeasurementDa
 				print_pal_error(Status);
 			}
 
-			dbg_printfln("Measured distance : %d", RangingMeasurementData->RangeMilliMeter);
+			dbg_printfln("Measured distance : %d", pMeasure->RangeMilliMeter);
 			print_pal_error(Status);
 		}
+	}
+
+	return Status;
+}
+
+
+void smartLight(uint16_t Measure){
+	//getSingleRanging(device, Measure, false);
+
+	if (Measure == 0 || Measure == 8190){
+		Measure = 0;
+	}
+
+
+	if (Measure > 0) {
+
+		if (Measure > trigger + 25 || Measure < trigger - 25){
+			if (triggered){
+
+			} else {
+				triggered = true;
+				dbg_printfln("Tof : triggered");
+				esp8266_print("red", "triggered");
+			}
+
+		} else {
+			dbg_printfln("Distance (mm): %d", Measure);
+
+			if (triggered){
+				triggered = false;
+			}
+		}
+
 
 	}
 
 
-	return Status;
+
 }
 
 void print_range_status(VL53L0X_RangingMeasurementData_t* pRangingMeasurementData){
@@ -166,10 +214,6 @@ void print_pal_error(VL53L0X_Error Status){
     dbg_printfln("API Status: %i : %s", Status, buf);
 }
 
-void ToF(void){
-
-	//VL53L0X_PerformSingleRangingMeasurement
-}
 
 /*
 	VL53L0X_Error Status = VL53L0X_ERROR_NONE;

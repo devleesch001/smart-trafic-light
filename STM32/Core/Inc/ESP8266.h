@@ -57,7 +57,7 @@ extern osMessageQueueId_t 	espQueueHandle;
 /* functions prototypes ---------------------------------------------*/
 
 osStatus_t esp8266(void);
-void esp8266_print(char * label, char * data);
+void esp8266_print(char * phase, char * ToF);
 char crc8(char *data);
 
 

@@ -57,6 +57,8 @@ typedef StaticSemaphore_t osStaticSemaphoreDef_t;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+uint16_t trigger = 0;
+
 CRC_HandleTypeDef hcrc;
 
 I2C_HandleTypeDef hi2c1;
@@ -626,20 +628,18 @@ void task1_fct(void *argument)
   /* USER CODE BEGIN 5 */
 	dbg_log("task 1 started");
 
-
-//	dbg_printf("Device : %s", (HAL_I2C_IsDeviceReady(&hi2c1, VL53L_ADDR, 2, HAL_MAX_DELAY) == HAL_OK) ? "already":"error");
-
 	VL53L0X_Dev_t device;
-	VL53L0X_Dev_t *pdevice = &device;
+	VL53L0X_Dev_t* pDevice = &device;
 
-//	VL53L0X_RangingMeasurementData_t RangingMeasurementData;
-//	VL53L0X_RangingMeasurementData_t *pRangingMeasurementData = &RangingMeasurementData;
+	uint16_t measure;
+	uint16_t* pMeasure = &measure;
 
-	VL53L0X_RangingMeasurementData_t measure;
 
-	bool ToFsensorAlready = ToF_init(pdevice, false);
+	bool ToFsensorAlready = ToF_init(pDevice, false);
 
-	// dbg_printfln("ToF_init : %s", (ToF_init(pdevice, true)) ? "ok":"ko");
+	dbg_printfln("Triger set to %d", trigger);
+
+	//dbg_printfln("ToF_init : %s", (ToF_init(pDevice, true)) ? "ok":"ko");
 
 
   /* Infinite loop */
@@ -648,17 +648,22 @@ void task1_fct(void *argument)
 		if (!ToFsensorAlready){
 			dbg_printfln("ToF_init : ko");
 
-			ToFsensorAlready = ToF_init(pdevice, false);
+			ToFsensorAlready = ToF_init(pDevice, false);
 
 		} else {
-			getSingleRanging(pdevice, &measure, false);
 
-			dbg_printfln("Distance (mm): %d", measure.RangeMilliMeter);
+			VL53L0X_Error Status = getSingleRanging(pDevice, pMeasure, false);
+
+			if (Status == VL53L0X_ERROR_NONE){
+				smartLight(measure);
+
+			}
+
 		}
 
+
+
 		//dbg_printf("task 1 alive");
-
-
 
 		osDelay(10);
 

@@ -30,16 +30,16 @@
 
 // Debug
 #include "osdebug.h"
+#include "ESP8266.h"
 
 #define I2CHANDLE		hi2c1
 
 /* functions prototypes ---------------------------------------------*/
 
 void VL53L_init(void);
-void ToF(void);
 bool ToF_init(VL53L0X_DEV device, bool debug);
-VL53L0X_Error getSingleRanging (VL53L0X_DEV device,VL53L0X_RangingMeasurementData_t *RangingMeasurementData, bool debug);
-int32_t VL53L0X_read_multi(uint8_t address, uint8_t index, uint8_t *pdata, uint32_t count);
+VL53L0X_Error getSingleRanging (VL53L0X_DEV device, uint16_t* Measure, bool debug);
+void smartLight(uint16_t Measure);
 void print_range_status(VL53L0X_RangingMeasurementData_t *pRangingMeasurementData);
 void print_pal_error(VL53L0X_Error Status);
 

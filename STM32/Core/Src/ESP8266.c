@@ -7,7 +7,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "ESP8266.h"
-
+#include "osdebug.h"
 /* Private includes ----------------------------------------------------------*/
 #include <stdio.h>
 
@@ -24,6 +24,7 @@ extern void Error_Handler(void);
 /* Private variables ---------------------------------------------------------*/
 
 extern UART_HandleTypeDef ESP_HANDLER; // serial monitor
+extern CRC_HandleTypeDef hcrc;
 
 osStatus_t esp8266(void) {
 	esp_obj_t		esp_in;
@@ -43,14 +44,15 @@ osStatus_t esp8266(void) {
 	return rstatus;
 }
 
-void esp8266_print(char * label, char * data) {
+void esp8266_print(char * phase, char * ToF) {
 
 	osSemaphoreAcquire(esp_sHandle, 0);
 
-		snprintf(esp_msg, TXT_OUT_SIZE, "%s\t%s\t", label, data);
-		char csum = crc8(esp_msg);
-		snprintf(esp_obj.txt, TXT_OUT_SIZE, "\r%s%c\n", esp_msg, csum);
-
+		snprintf(esp_msg, TXT_OUT_SIZE, "{\"Status\":\"%s\",\"ToF\":\"%s\"}", phase, ToF);
+		// char csum = crc8(esp_msg);
+		uint32_t uwCRCValue = HAL_CRC_Calculate(&hcrc, (uint32_t *)esp_msg, strlen(esp_msg));
+		snprintf(esp_obj.txt, TXT_OUT_SIZE, "\n{\"data\":%s,\"crc\":\"%lx\"}\r", esp_msg, uwCRCValue);
+		//sniprintf(esp_obj.txt, TXT_OUT_SIZE, "%s", esp_msg);
 		++esp_obj.id;
 
 		espStatus = osMessageQueuePut(espQueueHandle, &esp_obj, 0, 0);
