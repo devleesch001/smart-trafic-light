@@ -14,9 +14,15 @@
 
 extern I2C_HandleTypeDef I2CHANDLE;
 extern uint16_t trigger;
+extern uint8_t color;
 
 uint16_t preMeasure = 0;
 uint16_t triggered = 0;
+
+enum {
+	GREEN,
+	RED
+};
 
 bool ToF_init(VL53L0X_DEV device, bool debug){
 
@@ -175,7 +181,15 @@ void smartLight(uint16_t Measure){
 			} else {
 				triggered = true;
 				dbg_printfln("Tof : triggered");
-				esp8266_print("red", "triggered");
+
+				if (color == GREEN){
+					esp8266_print("GREEN", "triggered");
+
+				} else if (color == RED){
+					esp8266_print("RED", "triggered");
+				}
+
+
 			}
 
 		} else {

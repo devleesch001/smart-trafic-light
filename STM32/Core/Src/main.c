@@ -172,6 +172,16 @@ const osEventFlagsAttr_t flag_event_10s_attributes = {
   .cb_mem = NULL,
   .cb_size = 0
 };
+
+enum {
+	GREEN,
+	RED
+};
+
+uint16_t trigger;
+
+bool flag = false;
+uint8_t color = GREEN;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -653,6 +663,32 @@ void task1_fct(void *argument)
   /* Infinite loop */
 	for(;;)
 	{
+
+		if (flag == true){
+			if (color == GREEN){
+				color = RED;
+				HAL_GPIO_WritePin(GPIOC, RED_LED_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOC, GREEN_LED_Pin, GPIO_PIN_RESET);
+				dbg_printfln("color is now set to RED");
+
+			} else if (color == RED) {
+				color = GREEN;
+				HAL_GPIO_WritePin(GPIOC, GREEN_LED_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOC, RED_LED_Pin, GPIO_PIN_RESET);
+				dbg_printfln("color is now set to GREEN");
+
+			} else {
+				color = GREEN;
+				HAL_GPIO_WritePin(GPIOC, GREEN_LED_Pin, GPIO_PIN_SET);
+				HAL_GPIO_WritePin(GPIOC, RED_LED_Pin, GPIO_PIN_RESET);
+				dbg_printfln("color is default set to GREEN");
+			}
+
+			flag = false;
+		}
+
+
+
 		if (!ToFsensorAlready){
 			dbg_printfln("ToF_init : ko");
 
@@ -668,6 +704,8 @@ void task1_fct(void *argument)
 			}
 
 		}
+
+
 
 
 
@@ -755,6 +793,15 @@ void Error_Handler(void)
 
   /* USER CODE END Error_Handler_Debug */
 }
+
+void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin) {
+
+	if (GPIO_Pin == USER_BTN_Pin) {
+		flag = true;
+
+	}
+}
+
 
 #ifdef  USE_FULL_ASSERT
 /**
