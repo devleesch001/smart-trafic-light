@@ -221,6 +221,7 @@ function updateData() {
                     chart.data.datasets[0].data[23] = red;
                     chart.data.datasets[1].data[23] = green;
                     chart.data.datasets[2].data[23] = red + green;
+                    chart.update();
 
                 }
             }
