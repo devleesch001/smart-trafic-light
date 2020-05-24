@@ -19,7 +19,7 @@ extern "C" {
 //**************** Prototypes ****************
 bool connectToWIFI(int tryConnect, bool debug);
 String getDataFromSTM();
-bool checkCRC(String sensor);
+bool checkCRC(String sensor, bool debug);
 String getData(String sensor);
 
 bool connectToAws();
@@ -83,15 +83,19 @@ void loop() {
     if (sensor.length() > 0){
         Serial.println(sensor);
 
-        if (checkCRC(sensor)) {
+        if (checkCRC(sensor, false)) {
 
             String data = getData(sensor);
+
+            sendDatatoAws(data);
+
+/*
             deserializeJson(json, data);
-            json["Date"] = time(nullptr);
+                json["Date"] = time(nullptr);
 
-            //time_t now = time(nullptr);
+                //time_t now = time(nullptr);
 
-            data = "";
+                data = "";
             serializeJson(json, data);
 
             Serial.printf("Sending  [%s]: ", MQTT_PUB_TOPIC);
@@ -101,26 +105,6 @@ void loop() {
 
             if (!pubSubClient.publish(MQTT_PUB_TOPIC, data.c_str(), false))// send json data to dynamoDbB topic
             Serial.println("ERROR??? :"); Serial.println(pubSubClient.state()); //Connected '0'
-            //sendDatatoAws(sensor);
-            /*
-
-
-
-
-            String data = getData(sensor);
-            Serial.print("sensor : ");
-            Serial.println(data);
-
-            deserializeJson(json, data);
-
-            String tof = json[0];
-            Serial.println(tof);
-
-
-
-            if (tof == "triggered") {
-                Serial.println(tof);
-            }
             */
         }
         
@@ -185,37 +169,52 @@ void sendDatatoAws(String jsonData)
     //const char * data = "{\"posix\":856,\"phase\":\"green\",\"ToF\":\"triggered\"}";
 
     deserializeJson(json, jsonData);
-
     json["Date"] = time(nullptr);
+
     //time_t now = time(nullptr);
 
-    serializeJson(json, jsonData);
+    String data;
+    serializeJson(json, data);
 
     Serial.printf("Sending  [%s]: ", MQTT_PUB_TOPIC);
 
-    const char * data = jsonData.c_str();
-    
-    Serial.printf(data);
 
-    if (!pubSubClient.publish(MQTT_PUB_TOPIC, data, false))// send json data to dynamoDbB topic
+    Serial.println(data);
+
+    if (!pubSubClient.publish(MQTT_PUB_TOPIC, data.c_str(), false))// send json data to dynamoDbB topic
     Serial.println("ERROR??? :"); Serial.println(pubSubClient.state()); //Connected '0'
 
 }
 
-bool checkCRC(String sensor) {
+bool checkCRC(String sensor, bool debug) {
+    String data;
 
     deserializeJson(json, sensor);
+        String CRC_Json = json["crc"];
 
-    const char* c_crc = json["crc"];
-    uint32_t uint_crc = (int)strtol(c_crc, NULL, 16);
-
-    String data;
     serializeJson(json["data"], data);
+
     char * c_data = (char *)data.c_str();
     uint32_t crc = StringToCRC32(c_data, CRC32mpeg2);
 
-    if (crc == uint_crc) {
+    String CRC_Calc = String(crc, HEX); 
+
+    if (debug) {
+        Serial.print("crc calculated : "); Serial.println(CRC_Calc);
+        Serial.print("crc read from json : "); Serial.println(CRC_Json);
+    }
+
+
+    if (CRC_Calc == CRC_Json) {
+        if (debug) {
+            Serial.println("Success is : CRC_Calc == CRC_Json");
+        }
+
         return true;
+    }
+
+    if (debug) {
+        Serial.println("Fail is : CRC_Calc != CRC_Json");
     }
 
     return false;
