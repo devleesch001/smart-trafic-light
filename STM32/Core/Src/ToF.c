@@ -14,6 +14,7 @@
 
 extern I2C_HandleTypeDef I2CHANDLE;
 extern uint16_t trigger;
+extern bool buzzer;
 extern uint8_t color;
 
 uint16_t preMeasure = 0;
@@ -187,6 +188,7 @@ void smartLight(uint16_t Measure){
 
 				} else if (color == RED){
 					esp8266_print("RED", "triggered");
+					buzzer = true;
 				}
 
 
