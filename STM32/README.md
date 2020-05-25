@@ -1,11 +1,7 @@
-# logger-davidc-belkacem
-
-See brief [#9-2 Logger non bloquant avec OS](https://simplonline.co/briefs/detail/Xta6hFjnDvPDdiKtq)
+# smart-traffic-light STM32g071rb 
 
 **authors**
 
-* Belkacem
-* David C
+* Alexis DEVLEESCHAUWER
 
-**how to use**
-
+This project integrates [# 9-2 Non-blocking Logger with OS] (https://simplonline.co/briefs/detail/Xta6hFjnDvPDdiKtq)

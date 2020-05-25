@@ -27,7 +27,7 @@
 // OS
 #include "cmsis_os2.h"
 
-// use common libs
+// Common Libs
 #include <stdio.h>		// sprintf & printf
 #include <stdbool.h>	// bool
 #include <string.h>		// strlen...
@@ -58,7 +58,7 @@ typedef enum {
 
 // output
 typedef enum {
-	DBG_UART
+	DBG_UART,
 } dbg_out_t;
 
 // object data type in queue
@@ -73,8 +73,10 @@ typedef struct {
 #ifdef DEBUG /* DeBUGGING MODE */
 
 // debug strings
+char 			dbg_srnf[3];
 char 			dbg_tag[TXT_TAG_SIZE];
 char 			dbg_msg[TXT_OUT_SIZE];
+char 			dbg_txt[TXT_OUT_SIZE];
 logger_obj_t 	dbg_obj;
 osStatus_t 		rstatus;
 
@@ -87,16 +89,21 @@ extern osMessageQueueId_t 	log_queueHandle;
 /* macro to trace debug on serial monitor  with ticks */
 #define dbg_printf(...) { \
 	osSemaphoreAcquire(logger_sHandle, 0); \
-	snprintf(dbg_tag, TXT_OUT_SIZE, "<%lu>", HAL_GetTick());  /* ticks tag */ \
-	snprintf(dbg_msg, TXT_OUT_SIZE, __VA_ARGS__); /* args */ \
-	snprintf(dbg_obj.txt, TXT_OUT_SIZE, "%s %s", dbg_tag, dbg_msg); /* concat */ \
-	++dbg_obj.id; \
+		snprintf(dbg_msg, TXT_OUT_SIZE, __VA_ARGS__); /* args */ \
 	osSemaphoreRelease(logger_sHandle); \
-	rstatus = osMessageQueuePut(log_queueHandle, &dbg_obj, 0, 0); \
+	rstatus = osMessageQueuePut(log_queueHandle, &dbg_msg, 0, 0); \
 } /* end debug macro */
 
 /* to have file name without path */
 // #define __FILENAME__ (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+
+#define dbg_printfln(...) { \
+	osSemaphoreAcquire(logger_sHandle, 0); \
+		snprintf(dbg_txt, TXT_OUT_SIZE, __VA_ARGS__); \
+		snprintf(dbg_msg, TXT_OUT_SIZE, "%s%s", dbg_txt, "\r\n"); \
+	osSemaphoreRelease(logger_sHandle); \
+	rstatus = osMessageQueuePut(log_queueHandle, &dbg_msg, 0, 0); \
+}
 
 /* macro to trace debug on serial monitor with file & line number */
 #define dbg_log(...) { \
@@ -108,6 +115,8 @@ extern osMessageQueueId_t 	log_queueHandle;
 	osSemaphoreRelease(logger_sHandle); \
 	rstatus = osMessageQueuePut(log_queueHandle, &dbg_obj, 0, 0); \
 } /* end debug macro */
+
+/* macro to trace debug on serial monitor with file & line number */
 
 #else /* NO DEBUG */
 

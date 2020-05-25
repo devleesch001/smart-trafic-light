@@ -37,6 +37,7 @@ char 			dbg_msg[TXT_OUT_SIZE];
 logger_obj_t 	dbg_obj = {0, DBG_INFO, "NO MESSAGE"};
 osStatus_t 		rstatus;
 
+
 #endif
 
 /* Private user code ---------------------------------------------------------*/
@@ -53,9 +54,10 @@ void dbg_init(dbg_out_t out) {
 		// nothing special
 	break;
 
+
 	default:
 		Error_Handler();
-		break;
+	break;
 	}
 
 }
@@ -64,20 +66,24 @@ osStatus_t dbg(void) {
 
 	//uint8_t			i;
 	uint8_t			dbg_len;
-	logger_obj_t	dbg_in;
+	char 			dbg_msg[TXT_OUT_SIZE];
 	uint8_t			dbg_prio;
-	uint32_t 		dbg_count;
+//	uint32_t 		dbg_count;
 	char			dbg_txt[TXT_OUT_SIZE];
 
-	osStatus_t rstatus = osMessageQueueGet(log_queueHandle, &dbg_in, &dbg_prio, osWaitForever);
+	osStatus_t rstatus = osMessageQueueGet(log_queueHandle, &dbg_msg, &dbg_prio, osWaitForever);
 
 	if (rstatus == osOK) {
 
 		switch (dbg_out) {
 
 		case DBG_UART:
-			dbg_count = osMessageQueueGetCount(log_queueHandle);
-			snprintf(dbg_txt, TXT_OUT_SIZE, "\r\n{%lu|%lu} %s", dbg_count, dbg_in.id, dbg_in.txt);
+			 osMessageQueueGetCount(log_queueHandle);
+
+//			dbg_count = osMessageQueueGetCount(log_queueHandle);
+//			snprintf(dbg_txt, TXT_OUT_SIZE, "\r\n{%lu|%lu} %s", dbg_count, dbg_in.id, dbg_in.txt);
+
+			snprintf(dbg_txt, TXT_OUT_SIZE, "%s", dbg_msg);
 
 			osSemaphoreAcquire(uart_sHandle, 0);
 
