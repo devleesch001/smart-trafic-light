@@ -24,12 +24,12 @@ let chartData = {
     labels: ['00:00', '01:00', '02:00', '03:00', '04:00', '05:00', '06:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00', '22:00', '23:00'],
     datasets: [{
         type: 'bar',
-        label: 'Red',
+        label: 'Feu Rouge',
         backgroundColor: window.chartColors.red,
         data: [0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 20, 25, 20, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     }, {
         type: 'bar',
-        label: 'Green',
+        label: 'Feu Vert',
         backgroundColor: window.chartColors.green,
         data: [0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 20, 25, 20, 5, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     }, {
@@ -64,7 +64,7 @@ let chart = new Chart(ctx, {
         responsive: true,
         title: {
             display: true,
-            text: 'Chart.js Combo Bar Line Chart'
+            text: 'Smart Trafic Light'
         },
         tooltips: {
             mode: 'index',
