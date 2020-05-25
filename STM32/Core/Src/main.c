@@ -181,7 +181,9 @@ enum {
 uint16_t trigger;
 
 bool flag = false;
+bool buzzer = false;
 uint8_t color = GREEN;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -737,6 +739,13 @@ void task2_fct(void *argument)
 		//dbg_printfln("task 2 alive");
 
 		//esp8266_print("ToF", "triggered");
+
+		if (buzzer){
+			HAL_GPIO_WritePin(GPIOC, BUZZER_Pin, GPIO_PIN_SET);
+			osDelay(2000);
+			HAL_GPIO_WritePin(GPIOC, BUZZER_Pin, GPIO_PIN_RESET);
+			buzzer = false;
+		}
 
 		osDelay(1000);
 	}
